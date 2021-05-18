@@ -54,7 +54,7 @@ PubSubClient client(espClient);
 WebServer server(80);
 WiFiUDP udp;
 IPAddress ip;  
-char topic[]=  "fechadura"; // topico MQTT
+char topic []= "fechadura"; // topico MQTT
 char topic1[]= "abrirPorta"; // topico MQTT
 char topic2[]= "trancaPorta";
 NTPClient ntp(udp, "a.st1.ntp.br", -3 * 3600, 60000); //Hr do Br
@@ -67,6 +67,7 @@ String IP;
 String mac;
 unsigned long previousMillis = 0;
 const long intervalo = 3000;
+unsigned long currentMillis = millis();
 int leitura;
 const char* host = "esp3";
 /////////////////////////////////////////////////////////////////
@@ -137,11 +138,11 @@ String serverIndex =
 "});"
 "});"
 "</script>" + style;
-void callback(char* topic, byte* payload, unsigned int length){
+void callback(char* topicc, byte* payload, unsigned int length){
   //retorna infoMQTT
-  if (topic1){
-    for (int i=0;i<length;i++) {
-      comando =(char)payload[i];
+  if(topic1){
+    for(int i=0; i<length;i++){
+      comando=(char)payload[i];
     }
   }
 }
@@ -257,11 +258,11 @@ void abreComando(){
     StaticJsonDocument<256> doc;
     doc["local"] = "Porta-Transmissor";
     doc["ip"] = ip.toString();
-    doc["MAC"] = mac;
+    doc["mac"] = mac;
     doc["user"] = comando;
     char buffer[256];
     serializeJson(doc, buffer);
-    client.publish(topic1, buffer);
+    client.publish(topic, buffer);
     Serial.println("Sending message to MQTT topic..");
     Serial.println(buffer);
     estadoSenha(estado);
@@ -346,7 +347,6 @@ void loop(){
   mac=DEVICE_ID;
   server.handleClient();
   reconectaMQTT();
-  Serial.println(ip.toString());
   abreComando(); 
   if(digitalRead(botaoAbre)==HIGH){ //se apertar o botao abre a porta 
     digitalWrite(fechadura, LOW);
@@ -377,7 +377,7 @@ void loop(){
         StaticJsonDocument<256> doc;
         doc["local"] = "Porta-Transmissor";
         doc["ip"] = ip.toString();
-        doc["MAC"] = mac;
+        doc["mac"] = mac;
         doc["user"] = usuarioo;
         char buffer[256];
         serializeJson(doc, buffer);
@@ -406,12 +406,10 @@ void loop(){
     u8x8.print(digitada);
   }
     estadoSenha(estado);
-  }
-  unsigned long currentMillis = millis();
-  if (currentMillis - previousMillis >= intervalo) {
+  } else if (currentMillis - previousMillis >= intervalo) {
     previousMillis = currentMillis;
     leitura=digitalRead(tranca);
-    String payload=String(leitura);
-    client.publish (topic2, (char*) payload.c_str());
+    String payload1=String(leitura);
+    client.publish (topic2, (char*) payload1.c_str());
   }
 }
