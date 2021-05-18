@@ -1,5 +1,7 @@
-//FECHADURA SALA TECNICA COM SENHA
-//MILENA FREITAS 2021
+/*
+FECHADURA SALA TECNICA COM SENHA INDIVIDUAL
+      MILENA FREITAS 2021
+*/
 #include <Arduino.h>
 #include <Keypad.h>
 #include <U8x8lib.h>
@@ -54,9 +56,9 @@ PubSubClient client(espClient);
 WebServer server(80);
 WiFiUDP udp;
 IPAddress ip;  
-char topic []= "fechadura"; // topico MQTT
-char topic1[]= "abrirPorta"; // topico MQTT
-char topic2[]= "trancaPorta";
+char topic []= "fechadura";  // topico MQTT publica usuario
+char topic1[]= "abrirPorta"; // topico MQTT comando virtual da porta
+char topic2[]= "trancaPorta";// topico MQTT publica status da porta(open/close) 
 NTPClient ntp(udp, "a.st1.ntp.br", -3 * 3600, 60000); //Hr do Br
 struct tm data; //armazena data 
 char data_formatada[64];
@@ -140,7 +142,7 @@ String serverIndex =
 "</script>" + style;
 void callback(char* topicc, byte* payload, unsigned int length){
   //retorna infoMQTT
-  if(topic1){
+  if(topic1){ //pega comando via MQTT
     for(int i=0; i<length;i++){
       comando=(char)payload[i];
     }
@@ -152,7 +154,7 @@ void conectaMQTT () {
     if (client.connect("ESP32")){
       Serial.println("CONECTADO! :)");
       client.publish ("teste", "hello word");
-      client.subscribe ("fechadura");   
+      client.subscribe ("fechadura");   //se inscreve no topico a ser usado
       client.subscribe ("abrirPorta");
       client.subscribe ("trancaPorta");     
     } else {
@@ -180,9 +182,9 @@ void hora(){
   }
 }
 void escreveEEPROM(int endereco, int senhas[], unsigned int length) {
-  int adressIndex=endereco;
+  int adressIndex=endereco; //endereçamento
   for (int i=0; i<6; i++){
-    EEPROM.write(adressIndex, senhas[i]>>8);
+    EEPROM.write(adressIndex, senhas[i]>>8); //escreve ate 8bits
     EEPROM.write(adressIndex+1, senhas[i] & 0xFF);// escreve o byte menos significativo
     adressIndex+=2;
   }
@@ -190,8 +192,8 @@ void escreveEEPROM(int endereco, int senhas[], unsigned int length) {
 void leEEPROM (int endereco, String senhas[], unsigned int length){
   int adressIndex=endereco;
   for (int i=0; i<6; i++){
-    senhas[i] = (EEPROM.read(adressIndex)<<8) + EEPROM.read(adressIndex+1);
-    adressIndex+=2;
+    senhas[i] = (EEPROM.read(adressIndex)<<8) + EEPROM.read(adressIndex+1); //soma a parte mais significativa c a menos sig
+    adressIndex+=2; //soma 2 endereços pq é >8bits ent oculpa 2 end
   }
 }
 void pin(){
@@ -252,7 +254,7 @@ bool verificaSenha (String sa, String sd){ //funçao chamada para comparar as se
   return resultado;
 }
 void abreComando(){
-   if (comando=="1"){
+   if (comando=="1"){ //comando recebido via mqtt
     estado=1; //senha certa
     acerteiSenha = true;
     StaticJsonDocument<256> doc;
@@ -270,7 +272,8 @@ void abreComando(){
     delay(2000); 
   }
 }
-void UpdateRemoto() {
+void UpdateRemoto() { 
+  //upload via web
   if (!MDNS.begin(host)) {
 		Serial.println("Error setting up MDNS responder!");
 		while (1) {
@@ -310,7 +313,6 @@ void UpdateRemoto() {
 	});
 }
 void setup(){
- 
   Serial.begin(115200);
   EEPROM.begin(EEPROM_SIZE);
   escreveEEPROM(STARTING_EEPROM_ADDRESS, senhas, tamanho_array);
@@ -339,13 +341,13 @@ void setup(){
   Serial.print("digite a senha");
   estado=0;//inicializa com porta travada
   estadoSenha(estado);
-  UpdateRemoto();
-   server.begin();
+  UpdateRemoto(); //inicializa update via web
+  server.begin(); //servidor web
 }
 void loop(){
-  ip=WiFi.localIP();
-  mac=DEVICE_ID;
-  server.handleClient();
+  ip=WiFi.localIP(); //pega ip
+  mac=DEVICE_ID;     //pega mac
+  server.handleClient(); 
   reconectaMQTT();
   abreComando(); 
   if(digitalRead(botaoAbre)==HIGH){ //se apertar o botao abre a porta 
@@ -406,10 +408,10 @@ void loop(){
     u8x8.print(digitada);
   }
     estadoSenha(estado);
-  } else if (currentMillis - previousMillis >= intervalo) {
+  } else if (currentMillis - previousMillis >= intervalo) { //a cada 3s envia o status da porta
     previousMillis = currentMillis;
     leitura=digitalRead(tranca);
-    String payload1=String(leitura);
+    String payload1=String(leitura); //manda 0/1
     client.publish (topic2, (char*) payload1.c_str());
   }
 }
