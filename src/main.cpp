@@ -145,7 +145,7 @@ void callback(char* topicc, byte* payload, unsigned int length){
   //retorna infoMQTT
   if(topic1){ //pega comando via MQTT
     for(int i=0; i<length;i++){
-      comando=(char)payload[i];
+      comando=(char)payload[i]; //comando abre porta via mqtt
     }
   }
 }
