@@ -1,7 +1,7 @@
 /*
 FECHADURA SALA TECNICA COM SENHA INDIVIDUAL
       MILENA FREITAS 2021
-      versão final
+      versão final 4.1 c watchdog
 */
 #include <Arduino.h>
 #include <Keypad.h>
@@ -73,7 +73,8 @@ const long intervalo = 3000;
 unsigned long currentMillis = millis();
 int leitura;
 const char* host = "esp3";
-/////////////////////////////////////////////////////////////////
+hw_timer_t *timer = NULL;
+////////////////////////////////////////////////////////////////
 /* Style */
 String style =
 "<style>#file-input,input{width:100%;height:44px;border-radius:4px;margin:10px auto;font-size:15px}"
@@ -150,7 +151,7 @@ void callback(char* topicc, byte* payload, unsigned int length){
   }
 }
 void conectaMQTT () {
-  while(!client.connected()){
+  if(!client.connected()){
     Serial.println("conectando...");
     if (client.connect("ESP32")){
       Serial.println("CONECTADO! :)");
@@ -313,6 +314,10 @@ void UpdateRemoto() {
 		}
 	});
 }
+void IRAM_ATTR resetModule(){
+    ets_printf("(watchdog) reiniciar\n"); //imprime no log
+    esp_restart(); //reinicia o chip
+}
 void setup(){
   Serial.begin(115200);
   EEPROM.begin(EEPROM_SIZE);
@@ -344,8 +349,26 @@ void setup(){
   estadoSenha(estado);
   UpdateRemoto(); //inicializa update via web
   server.begin(); //servidor web
+  //hw_timer_t * timerBegin(uint8_t num, uint16_t divider, bool countUp)
+    /*
+       num: é a ordem do temporizador. Podemos ter quatro temporizadores, então a ordem pode ser [0,1,2,3].
+      divider: É um prescaler (reduz a frequencia por fator). Para fazer um agendador de um segundo, 
+      usaremos o divider como 80 (clock principal do ESP32 é 80MHz). Cada instante será T = 1/(80) = 1us
+      countUp: True o contador será progressivo
+    */
+  timer = timerBegin(0, 80, true); //timerID 0, div 80
+    //timer, callback, interrupção de borda
+  timerAttachInterrupt(timer, &resetModule, true);
+    //timer, tempo (us), repetição
+  timerAlarmWrite(timer, 300000000, true);
+  timerAlarmEnable(timer); //habilita a interrupção 
 }
 void loop(){
+  timerWrite(timer, 0); //reseta o temporizador (alimenta o watchdog) 
+  long tme = millis(); //tempo inicial do loop
+  Serial.print("tempo passado dentro do loop (ms) = ");
+  tme = millis() - tme; //calcula o tempo (atual - inicial)
+  Serial.println(tme);
   ip=WiFi.localIP(); //pega ip
   mac=DEVICE_ID;     //pega mac
   server.handleClient(); 
@@ -402,7 +425,7 @@ void loop(){
     digitada=""; //limpa o que foi digitado
     acerteiSenha=false;
   } else {
-    digitada+=key;  //concatenar as info que são digitadas
+    digitada+=key;  //concatena as info que são digitadas
     u8x8.clear();
     u8x8.setFont(u8x8_font_8x13B_1x2_f);
     u8x8.setCursor(1,6);
