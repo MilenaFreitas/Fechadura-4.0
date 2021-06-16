@@ -74,6 +74,7 @@ unsigned long currentMillis = millis();
 int leitura;
 const char* host = "esp3";
 hw_timer_t *timer = NULL;
+int contar=0;
 ////////////////////////////////////////////////////////////////
 /* Style */
 String style =
@@ -153,6 +154,10 @@ void callback(char* topicc, byte* payload, unsigned int length){
 void conectaMQTT () {
   if(!client.connected()){
     Serial.println("conectando...");
+        if(contar==10){
+      contar=0;
+      esp_restart();
+    }
     if (client.connect("ESP32")){
       Serial.println("CONECTADO! :)");
       client.publish ("teste", "hello word");
@@ -325,8 +330,14 @@ void setup(){
   leEEPROM(STARTING_EEPROM_ADDRESS, novasSenhas, tamanho_array);
   WiFi.begin(WIFI_NOME, WIFI_SENHA);
   while(WiFi.status()!= WL_CONNECTED){
-    Serial.println("conectando...");
+    contar++;
+    Serial.println("conectandoo...");
+    Serial.println(contar);
     delay(500);
+    if(contar==15){
+      contar=0;
+      esp_restart();
+    } 
   }
   ntp.begin();
   ntp.forceUpdate();
@@ -366,9 +377,6 @@ void setup(){
 void loop(){
   timerWrite(timer, 0); //reseta o temporizador (alimenta o watchdog) 
   long tme = millis(); //tempo inicial do loop
-  Serial.print("tempo passado dentro do loop (ms) = ");
-  tme = millis() - tme; //calcula o tempo (atual - inicial)
-  Serial.println(tme);
   ip=WiFi.localIP(); //pega ip
   mac=DEVICE_ID;     //pega mac
   server.handleClient(); 
@@ -438,4 +446,7 @@ void loop(){
     String payload1=String(leitura); //manda 0/1
     client.publish (topic2, (char*) payload1.c_str());
   }
+  Serial.print("tempo passado dentro do loop (ms) = ");
+  tme = millis() - tme; //calcula o tempo (atual - inicial)
+  Serial.println(tme);
 }
