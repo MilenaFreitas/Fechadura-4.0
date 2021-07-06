@@ -31,8 +31,8 @@ const byte linha = 4;
 const byte coluna = 4;
 String digitada;
 String usuarios;
-byte pinolinha[linha] = {17, 5, 18, 23};       //Declara os pinos de interpretação das linha
-byte pinocoluna[coluna] = {19, 22, 21, 0};      //Declara os pinos de interpretação das coluna
+byte pinolinha[linha] = {17, 5, 18, 23};     //Declara os pinos de interpretação das linha
+byte pinocoluna[coluna] = {19, 22, 21, 0};    //Declara os pinos de interpretação das coluna
 char keys [linha] [coluna]={
 {'1','2','3','A'},
 {'4','5','6','B'},
@@ -70,7 +70,6 @@ String IP;
 String mac;
 unsigned long previousMillis = 0;
 const long intervalo = 3000;
-unsigned long currentMillis = millis();
 int leitura;
 const char* host = "esp3";
 hw_timer_t *timer = NULL;
@@ -154,7 +153,7 @@ void callback(char* topicc, byte* payload, unsigned int length){
 void conectaMQTT () {
   if(!client.connected()){
     Serial.println("conectando...");
-        if(contar==10){
+        if(contar==15){
       contar=0;
       esp_restart();
     }
@@ -216,7 +215,7 @@ void visorInicio(){
   u8x8.setCursor(1,4);
   u8x8.print("digite a senha: ");
 }
-void estadoSenha (int                                                                                                                                                                                      estado){
+void estadoSenha (int estado){
 // 0=espera 1=aceito 2=negado 
   if (estado==0){ //standy by da porta, esperando ação
     digitalWrite(buzzer, HIGH);
@@ -360,28 +359,21 @@ void setup(){
   estadoSenha(estado);
   UpdateRemoto(); //inicializa update via web
   server.begin(); //servidor web
-  //hw_timer_t * timerBegin(uint8_t num, uint16_t divider, bool countUp)
-    /*
-       num: é a ordem do temporizador. Podemos ter quatro temporizadores, então a ordem pode ser [0,1,2,3].
-      divider: É um prescaler (reduz a frequencia por fator). Para fazer um agendador de um segundo, 
-      usaremos o divider como 80 (clock principal do ESP32 é 80MHz). Cada instante será T = 1/(80) = 1us
-      countUp: True o contador será progressivo
-    */
-  timer = timerBegin(0, 80, true); //timerID 0, div 80
-    //timer, callback, interrupção de borda
-  timerAttachInterrupt(timer, &resetModule, true);
-    //timer, tempo (us), repetição
-  timerAlarmWrite(timer, 300000000, true);
-  timerAlarmEnable(timer); //habilita a interrupção 
 }
 void loop(){
-  timerWrite(timer, 0); //reseta o temporizador (alimenta o watchdog) 
-  long tme = millis(); //tempo inicial do loop
   ip=WiFi.localIP(); //pega ip
   mac=DEVICE_ID;     //pega mac
   server.handleClient(); 
   reconectaMQTT();
   abreComando(); 
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillis >= intervalo) { //a cada 3s envia  o status da porta
+    previousMillis = currentMillis;
+    leitura=digitalRead(tranca);
+    String payload1=String(leitura); //manda 0/1
+    client.publish (topic2, (char*) payload1.c_str());
+    Serial.println("ENTROU NO LOOP DE ENVIAR CODIGO");
+  }
   if(digitalRead(botaoAbre)==HIGH){ //se apertar o botao abre a porta 
     digitalWrite(fechadura, LOW);
     delay(2000);
@@ -399,11 +391,11 @@ void loop(){
     delay(1500);
     digitalWrite(buzzer, HIGH);
     digitada="";
-  } else if (key=='C'){
+    } else if (key=='C'){
     //limpa senha
     digitada="";
-  } else if(key=='#'){ //depois do enter vai verificar a senha 
-    for (int i = 0; i < 6; i++) { //VERIFICAR SE ESTA SAINDO DESSE LAÇO
+    } else if(key=='#'){ //depois do enter vai verificar a senha 
+      for (int i = 0; i < 6; i++) { //VERIFICAR SE ESTA SAINDO DESSE LAÇO
       if(verificaSenha(novasSenhas[i], digitada)){
         String usuarioo = usuario[i];
         estado=1; //senha certa
@@ -440,13 +432,5 @@ void loop(){
     u8x8.print(digitada);
   }
     estadoSenha(estado);
-  } else if (currentMillis - previousMillis >= intervalo) { //a cada 3s envia o status da porta
-    previousMillis = currentMillis;
-    leitura=digitalRead(tranca);
-    String payload1=String(leitura); //manda 0/1
-    client.publish (topic2, (char*) payload1.c_str());
-  }
-  Serial.print("tempo passado dentro do loop (ms) = ");
-  tme = millis() - tme; //calcula o tempo (atual - inicial)
-  Serial.println(tme);
+  } 
 }
