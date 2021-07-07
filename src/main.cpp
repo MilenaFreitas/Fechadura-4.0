@@ -370,8 +370,13 @@ void loop(){
   if (currentMillis - previousMillis >= intervalo) { //a cada 3s envia  o status da porta
     previousMillis = currentMillis;
     leitura=digitalRead(tranca);
-    String payload1=String(leitura); //manda 0/1
-    client.publish (topic2, (char*) payload1.c_str());
+    if(leitura==1){
+      String payload1=String("FECHADO");
+      client.publish (topic2, (char*) payload1.c_str());
+    } else {
+      String payload1=String("ABERTO");
+      client.publish (topic2, (char*) payload1.c_str());
+    }
     Serial.println("ENTROU NO LOOP DE ENVIAR CODIGO");
   }
   if(digitalRead(botaoAbre)==HIGH){ //se apertar o botao abre a porta 
