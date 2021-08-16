@@ -19,7 +19,7 @@ FECHADURA SALA TECNICA COM SENHA INDIVIDUAL
 
 const int tamanho_array=5;
 const int STARTING_EEPROM_ADDRESS = 10; //primeiro endereço 
-int senhas[]= {1370, 6950, 7845, 6569, 1984};
+int senhas[]= {1370, 6950, 7855, 6569, 9090};
 String usuario[] ={"geral", "MAURICIO", "MILENA", "MEIRA", "LEONARDO"};
 String novasSenhas[tamanho_array];
 const int fechadura=14; 
