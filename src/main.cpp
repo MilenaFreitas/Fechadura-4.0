@@ -31,8 +31,8 @@ const byte linha = 4;
 const byte coluna = 4;
 String digitada;
 String usuarios;
-byte pinolinha[linha] = {17, 5, 18, 23};     //Declara os pinos de interpretação das linha
-byte pinocoluna[coluna] = {19, 22, 21, 0};    //Declara os pinos de interpretação das coluna
+byte pinolinha[linha] = {33, 32, 5, 18};     //Declara os pinos de interpretação das linha
+byte pinocoluna[coluna] = {23, 19, 22, 21};    //Declara os pinos de interpretação das coluna
 char keys [linha] [coluna]={
 {'1','2','3','A'},
 {'4','5','6','B'},
