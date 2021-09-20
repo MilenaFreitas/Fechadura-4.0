@@ -18,8 +18,8 @@ FECHADURA SALA TECNICA COM SENHA INDIVIDUAL
 #include <Update.h>
 
 const int tamanho_array=5;
-const int STARTING_EEPROM_ADDRESS = 10; //primeiro endereço 
-int senhas[]= {1370, 6950, 7855, 6569, 9090};
+const int STARTING_EEPROM_ADDRESS = 20; //primeiro endereço 
+int senhas[]= {4152, 6950, 7855, 6569, 9090};
 String usuario[] ={"geral", "MAURICIO", "MILENA", "MEIRA", "LEONARDO"};
 String novasSenhas[tamanho_array];
 const int fechadura=14; 
@@ -33,11 +33,12 @@ String digitada;
 String usuarios;
 byte pinolinha[linha] = {33, 32, 5, 18};     //Declara os pinos de interpretação das linha
 byte pinocoluna[coluna] = {23, 19, 22, 21};    //Declara os pinos de interpretação das coluna
-char keys [linha] [coluna]={
+const char keys [linha] [coluna]={
 {'1','2','3','A'},
 {'4','5','6','B'},
 {'7','8','9','C'},
-{'*','0','#','D'} };
+{'*','0','#','D'} 
+};
 Keypad keypad = Keypad(makeKeymap(keys), pinolinha, pinocoluna, linha, coluna);
 U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(15, 4, 16);
 #define EEPROM_SIZE 1024
@@ -60,6 +61,7 @@ IPAddress ip;
 char topic []= "fechadura";  // topico MQTT publica usuario
 char topic1[]= "abrirPorta"; // topico MQTT comando virtual da porta
 char topic2[]= "trancaPorta";// topico MQTT publica status da porta(open/close) 
+char topic3[]="monitoraESP";
 NTPClient ntp(udp, "a.st1.ntp.br", -3 * 3600, 60000); //Hr do Br
 struct tm data; //armazena data 
 char data_formatada[64];
@@ -69,11 +71,15 @@ String comando;
 String IP;
 String mac;
 unsigned long previousMillis = 0;
-const long intervalo = 3000;
+const long intervalo = 10000;
+const long intervalo2 = 1000*60*3;
 int leitura;
 const char* host = "esp3";
 hw_timer_t *timer = NULL;
 int contar=0;
+int rede;
+static uint8_t taskCoreZero=0;
+static uint8_t taskCoreOne=1;
 ////////////////////////////////////////////////////////////////
 /* Style */
 String style =
@@ -153,21 +159,16 @@ void callback(char* topicc, byte* payload, unsigned int length){
 void conectaMQTT () {
   if(!client.connected()){
     Serial.println("conectando...");
-        if(contar==15){
-      contar=0;
-      esp_restart();
-    }
     if (client.connect("ESP32")){
       Serial.println("CONECTADO! :)");
       client.publish ("teste", "hello word");
       client.subscribe ("fechadura");   //se inscreve no topico a ser usado
       client.subscribe ("abrirPorta");
-      client.subscribe ("trancaPorta");     
+      client.subscribe ("trancaPorta"); 
+      client.subscribe ("monitoraESP");    
     } else {
       Serial.println("Falha na conexao");
-      Serial.print(client.state());
-      Serial.print("nova tentativa em 5s...");
-      delay (5000);
+      Serial.println("Aguarde Reconexão");
     }
   }
 }
@@ -176,7 +177,40 @@ void reconectaMQTT(){
   if (!client.connected()) {
     conectaMQTT();
   }
-  client.loop();
+  client.loop(); //mantem conexao com o MQTT
+}
+void iniciaWifi(){
+  int cont=0;
+  WiFi.begin(WIFI_NOME, WIFI_SENHA); 
+  while (WiFi.status()!= WL_CONNECTED){//incia wifi ate q funcione
+    Serial.print(".");
+    delay(1000);
+    cont++;
+    if(cont==15){  //se n funcionar sai do loop e fica sem rede
+      Serial.println("break");
+      rede=0; //status da rede
+      Serial.print("rede= ");
+      Serial.println(rede);
+      break;
+    }
+  }  
+  if(WiFi.status() == WL_CONNECTED){  //se conectar
+    rede=1;
+    if (!client.connected()){  //aqui é while, mudei pra teste
+      conectaMQTT();
+    }
+  }
+}
+void tentaReconexao(){ 
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillis >= intervalo2) { //a cada 3min tenta reconectar
+    Serial.print("*************************");
+    Serial.print("TENTA RECONEXAO");
+    Serial.println("***********************");
+    previousMillis = currentMillis;
+    iniciaWifi();
+    ntp.forceUpdate();
+  }
 }
 void hora(){
   time_t tt=time(NULL);
@@ -193,6 +227,7 @@ void escreveEEPROM(int endereco, int senhas[], unsigned int length) {
     EEPROM.write(adressIndex, senhas[i]>>8); //escreve ate 8bits
     EEPROM.write(adressIndex+1, senhas[i] & 0xFF);// escreve o byte menos significativo
     adressIndex+=2;
+    Serial.println("escreveu na EEPROM");
   }
 }
 void leEEPROM (int endereco, String senhas[], unsigned int length){
@@ -250,7 +285,8 @@ void estadoSenha (int estado){
     digitalWrite(buzzer, HIGH); 
   }
 }
-bool verificaSenha (String sa, String sd){ //funçao chamada para comparar as senhas 
+bool verificaSenha (String sa, String sd){  
+  //funçao chamada para comparar as senhas 
   bool resultado=false;
   if(sa.compareTo(sd)==0){//se a comparação for 0 é porque são iguais
     resultado=true; //se senha correta função verificaSenha fica verdadeira
@@ -318,26 +354,43 @@ void UpdateRemoto() {
 		}
 	});
 }
-void IRAM_ATTR resetModule(){
-    ets_printf("(watchdog) reiniciar\n"); //imprime no log
-    esp_restart(); //reinicia o chip
+void abreBotao(void * pvParameters){
+  while(1){
+    if(digitalRead(botaoAbre)==HIGH){ //se apertar o botao abre a porta 
+      digitalWrite(fechadura, LOW);
+      delay(2000);
+      digitalWrite(fechadura, HIGH);
+      estado=0; //retorna para standy by
+      estadoSenha(estado);
+      Serial.println("ENTROU NO LOOP DO BOTAO");
+    }
+    vTaskDelay(500);
+  }
+}
+void statusPorta(void * pvParameters){
+  while(1){
+    unsigned long currentMillis = millis();
+    if (currentMillis - previousMillis >= intervalo) { //a cada 10s envia  o status da porta
+      previousMillis = currentMillis;
+      leitura=digitalRead(tranca);
+      if(leitura==1){
+        String payload1=String("FECHADO");
+        client.publish (topic2, (char*) payload1.c_str());
+      } else {
+        String payload1=String("ABERTO");
+        client.publish (topic2, (char*) payload1.c_str());
+      }
+    Serial.println("ENTROU NO LOOP DE ENVIAR CODIGO");
+    }
+    vTaskDelay(500); 
+  } 
 }
 void setup(){
   Serial.begin(115200);
   EEPROM.begin(EEPROM_SIZE);
   escreveEEPROM(STARTING_EEPROM_ADDRESS, senhas, tamanho_array);
   leEEPROM(STARTING_EEPROM_ADDRESS, novasSenhas, tamanho_array);
-  WiFi.begin(WIFI_NOME, WIFI_SENHA);
-  while(WiFi.status()!= WL_CONNECTED){
-    contar++;
-    Serial.println("conectandoo...");
-    Serial.println(contar);
-    delay(500);
-    if(contar==15){
-      contar=0;
-      esp_restart();
-    } 
-  }
+  iniciaWifi();
   ntp.begin();
   ntp.forceUpdate();
   if (!ntp.forceUpdate()){
@@ -359,33 +412,36 @@ void setup(){
   estadoSenha(estado);
   UpdateRemoto(); //inicializa update via web
   server.begin(); //servidor web
-}
-void loop(){
   ip=WiFi.localIP(); //pega ip
   mac=DEVICE_ID;     //pega mac
-  server.handleClient(); 
+  xTaskCreatePinnedToCore( //taskmonitora
+    statusPorta,  //funçao que implementa a tarefa   
+    "statusPorta", //nome da tarefa
+    10000,         //numero de palavras a serem alocadas para uso com a pilha
+    NULL,          //parametro de entrada da a task
+    1,             //prioridade é menor 
+    NULL,          //task_handle de referencia
+    taskCoreZero   //nucleo onde vai ser executado a tarefa
+  );
+  delay(500);
+  xTaskCreatePinnedToCore( //taskbotao
+    abreBotao,  //funçao que implementa a tarefa   
+    "abrePorta", //nome da tarefa
+    10000,         //numero de palavras a serem alocadas para uso com a pilha
+    NULL,          //parametro de entrada da a task
+    2,             //prioridade da tarefa 2 é mais alta, faz primeiro
+    NULL,          //task_handle de referencia
+    taskCoreZero   //nucleo onde vai ser executado a tarefa
+  );
+  delay(500);
+}
+void loop(){
+  server.handleClient();
+  if(rede==0){
+    tentaReconexao();
+  } 
   reconectaMQTT();
-  abreComando(); 
-  unsigned long currentMillis = millis();
-  if (currentMillis - previousMillis >= intervalo) { //a cada 3s envia  o status da porta
-    previousMillis = currentMillis;
-    leitura=digitalRead(tranca);
-    if(leitura==1){
-      String payload1=String("FECHADO");
-      client.publish (topic2, (char*) payload1.c_str());
-    } else {
-      String payload1=String("ABERTO");
-      client.publish (topic2, (char*) payload1.c_str());
-    }
-    Serial.println("ENTROU NO LOOP DE ENVIAR CODIGO");
-  }
-  if(digitalRead(botaoAbre)==HIGH){ //se apertar o botao abre a porta 
-    digitalWrite(fechadura, LOW);
-    delay(2000);
-    digitalWrite(fechadura, HIGH);
-    estado=0; //retorna para standy by
-    estadoSenha(estado);
-  }
+  abreComando(); //abre porta via MQTT
   char key = keypad.getKey(); //le as teclas
   if (key!=NO_KEY){ //se digitar...
     digitalWrite (buzzer, LOW);
@@ -421,11 +477,17 @@ void loop(){
         break;
       }
     } 
-    if (acerteiSenha==false) {
+    if (acerteiSenha==false){
       estado=2;
       estadoSenha(estado);
       delay(2000);
       estado=0;
+      StaticJsonDocument<256> doc;
+      doc["local"] = "Porta-Transmissor";
+      doc["status"] = "Falha na tentativa!!!";
+      char buffer[256];
+      serializeJson(doc, buffer);
+      client.publish(topic, buffer);
     }
     digitada=""; //limpa o que foi digitado
     acerteiSenha=false;
@@ -435,6 +497,7 @@ void loop(){
     u8x8.setFont(u8x8_font_8x13B_1x2_f);
     u8x8.setCursor(1,6);
     u8x8.print(digitada);
+    Serial.println(digitada);
   }
     estadoSenha(estado);
   } 
