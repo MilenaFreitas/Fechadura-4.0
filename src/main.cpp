@@ -1,7 +1,7 @@
 /*
 FECHADURA SALA TECNICA COM SENHA INDIVIDUAL
       MILENA FREITAS 2021
-      versão final 4.1 c watchdog
+      versão final 4.1
 */
 #include <Arduino.h>
 #include <Keypad.h>
