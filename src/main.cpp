@@ -5,7 +5,8 @@
 /*
 FECHADURA SALA TECNICA COM SENHA INDIVIDUAL
       MILENA FREITAS 2021
-      versão final 4.1
+      versão final 
+      Com reconexão do wifi
 */
 #include <Arduino.h>
 #include <Keypad.h>
