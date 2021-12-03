@@ -52,7 +52,7 @@ U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(15, 4, 16);
 //#define WIFI_NOME "Milena Freitas" //rede wifi específica
 //#define WIFI_SENHA "naoseinao"
 #define BROKER_MQTT "10.71.0.2"
-#define DEVICE_TYPE "ESP32"
+#define DEVICE_TYPE "FECHADURA-TRANSMISSOR"
 #define TOKEN "ib+r)WKRvHCGjmjGQ0"
 #define ORG "n5hyok"
 
@@ -164,7 +164,7 @@ void callback(char* topicc, byte* payload, unsigned int length){
 void conectaMQTT () {
   if(!client.connected()){
     Serial.println("conectando...");
-    if (client.connect("ESP32")){
+    if (client.connect("FECHADURA-TRANSMISSOR")){
       Serial.println("CONECTADO! :)");
       client.publish ("teste", "hello word");
       client.subscribe ("fechadura");   //se inscreve no topico a ser usado
