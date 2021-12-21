@@ -1,7 +1,4 @@
 
-
-
-
 /*
 FECHADURA SALA TECNICA COM SENHA INDIVIDUAL
       MILENA FREITAS 2021
@@ -68,7 +65,6 @@ IPAddress ip;
 char topic []= "fechadura";  // topico MQTT publica usuario
 char topic1[]= "abrirPorta"; // topico MQTT comando virtual da porta
 char topic2[]= "trancaPorta";// topico MQTT publica status da porta(open/close) 
-char topic3[]="monitoraESP";
 NTPClient ntp(udp, "a.st1.ntp.br", -3 * 3600, 60000); //Hr do Br
 struct tm data; //armazena data 
 char data_formatada[64];
@@ -155,11 +151,13 @@ String serverIndex =
 "</script>" + style;
 void callback(char* topicc, byte* payload, unsigned int length){
   //retorna infoMQTT
-  if(topic1){ //pega comando via MQTT
+  String topicStr=topicc;  
+  if(topicStr=="abrirPorta"){ //pega comando via MQTT
     for(int i=0; i<length;i++){
       comando=(char)payload[i]; //comando abre porta via mqtt
     }
   }
+  topicStr="";
 }
 void conectaMQTT () {
   if(!client.connected()){
@@ -169,8 +167,7 @@ void conectaMQTT () {
       client.publish ("teste", "hello word");
       client.subscribe ("fechadura");   //se inscreve no topico a ser usado
       client.subscribe ("abrirPorta");
-      client.subscribe ("trancaPorta"); 
-      client.subscribe ("monitoraESP");    
+      client.subscribe ("trancaPorta");   
     } else {
       Serial.println("Falha na conexao");
       Serial.println("Aguarde Reconexão");
@@ -312,6 +309,7 @@ void abreComando(){
     Serial.println(buffer);
     estadoSenha(estado);
     estado=0; 
+    comando="";
   }
 }
 void UpdateRemoto() { 
@@ -376,10 +374,10 @@ void loop2(void * pvParameters){
     }else if(rede==0){
       Serial.println(rede);
       tentaReconexao();
-    }else if (comando=="1"){
-      abreComando();
     }
+    abreComando();
     reconectaMQTT();
+    
     vTaskDelay(500);
   }
 }
