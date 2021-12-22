@@ -296,6 +296,7 @@ bool verificaSenha (String sa, String sd){
 void abreComando(){
    if (comando=="1"){ //comando recebido via mqtt
     estado=1; //senha certa
+    estadoSenha(estado);
     acerteiSenha = true;
     StaticJsonDocument<256> doc;
     doc["local"] = "Porta-Transmissor";
@@ -307,8 +308,8 @@ void abreComando(){
     client.publish(topic, buffer);
     Serial.println("Sending message to MQTT topic..");
     Serial.println(buffer);
+    estado=0;
     estadoSenha(estado);
-    estado=0; 
     comando="";
   }
 }
@@ -377,7 +378,7 @@ void loop2(void * pvParameters){
     }
     abreComando();
     reconectaMQTT();
-    
+
     vTaskDelay(500);
   }
 }
@@ -458,10 +459,11 @@ void loop(){
     //limpa senha
     digitada="";
     } else if(key=='#'){ //depois do enter vai verificar a senha 
-      for (int i = 0; i < 6; i++) { //VERIFICAR SE ESTA SAINDO DESSE LAÇO
+      for (int i = 0; i < 6; i++) { 
       if(verificaSenha(novasSenhas[i], digitada)){
         String usuarioo = usuario[i];
         estado=1; //senha certa
+        estadoSenha(estado);
         acerteiSenha = true;
         StaticJsonDocument<256> doc;
         doc["local"] = "Porta-Transmissor";
@@ -473,8 +475,8 @@ void loop(){
         client.publish(topic, buffer);
         Serial.println("Sending message to MQTT topic..");
         Serial.println(buffer);
-        estadoSenha(estado);
         estado=0;
+        estadoSenha(estado);
         delay(2000); 
         break;
       }
@@ -484,6 +486,7 @@ void loop(){
       estadoSenha(estado);
       delay(2000);
       estado=0;
+      estadoSenha(estado);
       StaticJsonDocument<256> doc;
       doc["local"] = "Porta-Transmissor";
       doc["status"] = "Falha na tentativa!!!";
