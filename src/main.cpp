@@ -7,7 +7,6 @@ FECHADURA SALA TECNICA COM SENHA INDIVIDUAL
 */
 #include <Arduino.h>
 #include <Keypad.h>
-#include <U8x8lib.h>
 #include <WiFiClient.h>
 #include <NTPClient.h>
 #include <PubSubClient.h>
@@ -20,7 +19,7 @@ FECHADURA SALA TECNICA COM SENHA INDIVIDUAL
 #include <Update.h>
 
 const int tamanho_array=5;
-const int STARTING_EEPROM_ADDRESS = 20; //primeiro endereço 
+const int STARTING_EEPROM_ADDRESS = 25; //primeiro endereço 
 int senhas[]= {4152, 6950, 7855, 6569, 9090};
 String usuario[] ={"geral", "MAURICIO", "MILENA", "MEIRA", "LEONARDO"};
 String novasSenhas[tamanho_array];
@@ -42,7 +41,6 @@ const char keys [linha] [coluna]={
 {'*','0','#','D'} 
 };
 Keypad keypad = Keypad(makeKeymap(keys), pinolinha, pinocoluna, linha, coluna);
-U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(15, 4, 16);
 #define EEPROM_SIZE 1024
 #define WIFI_NOME "Metropole" //rede wifi específica
 #define WIFI_SENHA "908070Radio"
@@ -82,73 +80,6 @@ int contar=0;
 int rede;
 static uint8_t taskCoreZero=0; 
 ////////////////////////////////////////////////////////////////
-/* Style */
-String style =
-"<style>#file-input,input{width:100%;height:44px;border-radius:4px;margin:10px auto;font-size:15px}"
-"input{background:#f1f1f1;border:0;padding:0 15px}body{background:#3498db;font-family:sans-serif;font-size:14px;color:#777}"
-"#file-input{padding:0;border:1px solid #ddd;line-height:44px;text-align:left;display:block;cursor:pointer}"
-"#bar,#prgbar{background-color:#f1f1f1;border-radius:10px}#bar{background-color:#3498db;width:0%;height:10px}"
-"form{background:#fff;max-width:258px;margin:75px auto;padding:30px;border-radius:5px;text-align:center}"
-".btn{background:#3498db;color:#fff;cursor:pointer}</style>";
-/* Login page */
-String loginIndex =
-"<form name=loginForm>"
-"<h1>ESP32 Login</h1>"
-"<input name=userid placeholder='User ID'> "
-"<input name=pwd placeholder=Password type=Password> "
-"<input type=submit onclick=check(this.form) class=btn value=Login></form>"
-"<script>"
-"function check(form) {"
-"if(form.userid.value=='admin' && form.pwd.value=='servidor908070')"
-"{window.open('/serverIndex')}"
-"else"
-"{alert('Error Password or Username')}"
-"}"
-"</script>" + style;
-/* Server Index Page */
-String serverIndex =
-"<script src='https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>"
-"<form method='POST' action='#' enctype='multipart/form-data' id='upload_form'>"
-"<input type='file' name='update' id='file' onchange='sub(this)' style=display:none>"
-"<label id='file-input' for='file'>   Choose file...</label>"
-"<input type='submit' class=btn value='Update'>"
-"<br><br>"
-"<div id='prg'></div>"
-"<br><div id='prgbar'><div id='bar'></div></div><br></form>"
-"<script>"
-"function sub(obj){"
-"var fileName = obj.value.split('\\\\');"
-"document.getElementById('file-input').innerHTML = '   '+ fileName[fileName.length-1];"
-"};"
-"$('form').submit(function(e){"
-"e.preventDefault();"
-"var form = $('#upload_form')[0];"
-"var data = new FormData(form);"
-"$.ajax({"
-"url: '/update',"
-"type: 'POST',"
-"data: data,"
-"contentType: false,"
-"processData:false,"
-"xhr: function() {"
-"var xhr = new window.XMLHttpRequest();"
-"xhr.upload.addEventListener('progress', function(evt) {"
-"if (evt.lengthComputable) {"
-"var per = evt.loaded / evt.total;"
-"$('#prg').html('progress: ' + Math.round(per*100) + '%');"
-"$('#bar').css('width',Math.round(per*100) + '%');"
-"}"
-"}, false);"
-"return xhr;"
-"},"
-"success:function(d, s) {"
-"console.log('success!') "
-"},"
-"error: function (a, b, c) {"
-"}"
-"});"
-"});"
-"</script>" + style;
 void callback(char* topicc, byte* payload, unsigned int length){
   //retorna infoMQTT
   String topicStr=topicc;  
@@ -190,10 +121,7 @@ void iniciaWifi(){
     delay(1000);
     cont++;
     if(cont==15){  //se n funcionar sai do loop e fica sem rede
-      Serial.println("break");
       rede=0; //status da rede
-      Serial.print("rede= ");
-      Serial.println(rede);
       break;
     } else if(WiFi.status() == WL_CONNECTED){
       rede=1;
@@ -204,9 +132,6 @@ void iniciaWifi(){
   }      
 }
 void tentaReconexao(){ 
-    Serial.print("*************************");
-    Serial.print("TENTA RECONEXAO");
-    Serial.println("***********************");
     iniciaWifi();
     ntp.forceUpdate();
 }
@@ -217,6 +142,15 @@ void hora(){
   int ano_esp = data.tm_year;
   if (ano_esp<2020){
     ntp.forceUpdate();
+  }
+}
+void escreveEEPROM(int endereco, int senhas[], unsigned int length) {
+  int adressIndex=endereco; //endereçamento
+  for (int i=0; i<6; i++){
+    EEPROM.write(adressIndex, senhas[i]>>8); //escreve ate 8bits
+    EEPROM.write(adressIndex+1, senhas[i] & 0xFF);// escreve o byte menos significativo
+    adressIndex+=2;
+    Serial.println("escreveu na EEPROM");
   }
 }
 void leEEPROM (int endereco, String senhas[], unsigned int length){
@@ -231,38 +165,19 @@ void pin(){
   pinMode(buzzer, OUTPUT);
   pinMode(botaoAbre, INPUT_PULLUP);
   pinMode(tranca, INPUT_PULLUP);
-
-}
-void visorInicio(){
-  u8x8.clear();
-  u8x8.setFont(u8x8_font_8x13B_1x2_f);
-  u8x8.setCursor(1,4);
-  u8x8.print("digite a senha: ");
 }
 void estadoSenha (int estado){
 // 0=espera 1=aceito 2=negado 
   if (estado==0){ //standy by da porta, esperando ação
     digitalWrite(buzzer, HIGH);
     digitalWrite(fechadura, HIGH); //trancada
-    u8x8.clear();
-    u8x8.setFont(u8x8_font_8x13B_1x2_f);
-    u8x8.setCursor(1,4);
-    u8x8.print("digite a senha: ");
   } else if (estado==1){ //abre
-    u8x8.clear();
-    u8x8.setFont(u8x8_font_8x13B_1x2_f);
-    u8x8.setCursor(3,2);
-    u8x8.print("Bem Vindo!");
     digitalWrite(buzzer, LOW);
     digitalWrite(fechadura, LOW);
     delay(2000);
     digitalWrite(buzzer, HIGH);
     digitalWrite(fechadura, HIGH);
   } else if (estado==2){ //não abre
-    u8x8.clear(); 
-    u8x8.setFont(u8x8_font_8x13B_1x2_f);
-    u8x8.setCursor(0,4);
-    u8x8.print("Senha incorreta");
     digitalWrite(fechadura, HIGH); //TRANCADA
     Serial.print("falha na tentativa");
     digitalWrite(buzzer, LOW);
@@ -297,52 +212,10 @@ void abreComando(){
     char buffer[256];
     serializeJson(doc, buffer);
     client.publish(topic, buffer);
-    Serial.println("Sending message to MQTT topic..");
-    Serial.println(buffer);
     estado=0;
     estadoSenha(estado);
     comando="";
   }
-}
-void UpdateRemoto() { 
-  //upload via web
-  if (!MDNS.begin(host)) {
-		Serial.println("Error setting up MDNS responder!");
-		while (1) {
-			delay(1000);
-		}
-	}
-	server.on("/", HTTP_GET, []() {
-		server.sendHeader("Connection", "close");
-		server.send(200, "text/html", loginIndex);
-	});
-	server.on("/serverIndex", HTTP_GET, []() {
-		server.sendHeader("Connection", "close");
-		server.send(200, "text/html", serverIndex);
-	});
-	server.on("/update", HTTP_POST, []() {
-		server.sendHeader("Connection", "close");
-		server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
-		ESP.restart();
-	}, []() {
-		HTTPUpload& upload = server.upload();
-		if (upload.status == UPLOAD_FILE_START) {
-			Serial.printf("Update: %s\n", upload.filename.c_str());
-			if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {//start with max available size
-				Update.printError(Serial);
-			}
-		} else if (upload.status == UPLOAD_FILE_WRITE) {
-			if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
-				Update.printError(Serial);
-			}
-		} else if (upload.status == UPLOAD_FILE_END) {
-			if (Update.end(true)) {
-				Serial.printf("Update Success: %u\nRebooting++...\n", upload.totalSize);
-			} else {
-				Update.printError(Serial);
-			}
-		}
-	});
 }
 void abreBotao(void * pvParameters){
   while(1){
@@ -352,9 +225,6 @@ void abreBotao(void * pvParameters){
       digitalWrite(fechadura, HIGH);
       estado=0; //retorna para standy by
       estadoSenha(estado);
-      Serial.print("--------------------");
-      Serial.print("ENTROU NO LOOP DO BOTAO");
-      Serial.println("--------------------");
     }
     vTaskDelay(500);
   }
@@ -391,6 +261,7 @@ void statusPorta(){
 void setup(){
   Serial.begin(115200);
   EEPROM.begin(EEPROM_SIZE);
+  escreveEEPROM(STARTING_EEPROM_ADDRESS, senhas, tamanho_array);
   leEEPROM(STARTING_EEPROM_ADDRESS, novasSenhas, tamanho_array);
   iniciaWifi();
   ntp.begin();
@@ -405,12 +276,9 @@ void setup(){
   client.setServer (BROKER_MQTT, 1883);//define mqtt
   client.setCallback(callback); 
   pin();
-  u8x8.begin();
   Serial.print("digite a senha");
   estado=0;//inicializa com porta travada
   estadoSenha(estado);
-  UpdateRemoto(); //inicializa update via web
-  server.begin(); //servidor web
   ip=WiFi.localIP(); //pega ip
   mac=DEVICE_ID;     //pega mac
   xTaskCreatePinnedToCore( //taskmonitora
@@ -488,10 +356,6 @@ void loop(){
     acerteiSenha=false;
   } else {
     digitada+=key;  //concatena as info que são digitadas
-    u8x8.clear();
-    u8x8.setFont(u8x8_font_8x13B_1x2_f);
-    u8x8.setCursor(1,6);
-    u8x8.print(digitada);
     Serial.println(digitada);
   }
     estadoSenha(estado);
