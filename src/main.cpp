@@ -74,7 +74,7 @@ String comando;
 String IP;
 String mac;
 unsigned long previousMillis = 0;
-const long intervalo = 10000;
+const long intervalo = 60*1000*1; //1 min
 int leitura;
 const char* host = "esp3";
 hw_timer_t *timer = NULL;
@@ -217,15 +217,6 @@ void hora(){
   int ano_esp = data.tm_year;
   if (ano_esp<2020){
     ntp.forceUpdate();
-  }
-}
-void escreveEEPROM(int endereco, int senhas[], unsigned int length) {
-  int adressIndex=endereco; //endereçamento
-  for (int i=0; i<6; i++){
-    EEPROM.write(adressIndex, senhas[i]>>8); //escreve ate 8bits
-    EEPROM.write(adressIndex+1, senhas[i] & 0xFF);// escreve o byte menos significativo
-    adressIndex+=2;
-    Serial.println("escreveu na EEPROM");
   }
 }
 void leEEPROM (int endereco, String senhas[], unsigned int length){
@@ -400,7 +391,6 @@ void statusPorta(){
 void setup(){
   Serial.begin(115200);
   EEPROM.begin(EEPROM_SIZE);
-  escreveEEPROM(STARTING_EEPROM_ADDRESS, senhas, tamanho_array);
   leEEPROM(STARTING_EEPROM_ADDRESS, novasSenhas, tamanho_array);
   iniciaWifi();
   ntp.begin();
@@ -426,7 +416,7 @@ void setup(){
   xTaskCreatePinnedToCore( //taskmonitora
     loop2,  //funçao que implementa a tarefa   
     "loopGeral",    //nome da tarefa
-    10000,         //numero de palavras a serem alocadas para uso com a pilha
+    2000,         //numero de palavras a serem alocadas para uso com a pilha
     NULL,          //parametro de entrada da a task
     1,             //prioridade é menor 
     NULL,          //task_handle de referencia
@@ -435,7 +425,7 @@ void setup(){
   xTaskCreatePinnedToCore( //taskbotao
     abreBotao,  //funçao que implementa a tarefa   
     "abrePorta", //nome da tarefa
-    10000,         //numero de palavras a serem alocadas para uso com a pilha
+    2000,         //numero de palavras a serem alocadas para uso com a pilha
     NULL,          //parametro de entrada da a task
     2,             //prioridade da tarefa 2 é mais alta, faz primeiro
     NULL,          //task_handle de referencia
