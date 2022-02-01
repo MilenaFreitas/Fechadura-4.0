@@ -17,11 +17,9 @@ FECHADURA SALA TECNICA COM SENHA INDIVIDUAL
 #include <SPI.h>
 #include <ESPmDNS.h>
 #include <Update.h>
-
+#include "C:\Users\Estudio\Desktop\dados fechadura.cpp"
 const int tamanho_array=5;
 const int STARTING_EEPROM_ADDRESS = 25; //primeiro endereço 
-int senhas[]= {4152, 6950, 7855, 6569, 9090};
-String usuario[] ={"geral", "MAURICIO", "MILENA", "MEIRA", "LEONARDO"};
 String novasSenhas[tamanho_array];
 const int fechadura=14; 
 const int botaoAbre=27; 
@@ -42,14 +40,6 @@ const char keys [linha] [coluna]={
 };
 Keypad keypad = Keypad(makeKeymap(keys), pinolinha, pinocoluna, linha, coluna);
 #define EEPROM_SIZE 1024
-#define WIFI_NOME "Metropole" //rede wifi específica
-#define WIFI_SENHA "908070Radio"
-//#define WIFI_NOME "Milena Freitas" //rede wifi específica
-//#define WIFI_SENHA "naoseinao"
-#define BROKER_MQTT "10.71.0.2"
-#define DEVICE_TYPE "FECHADURA-TRANSMISSOR"
-#define TOKEN "ib+r)WKRvHCGjmjGQ0"
-#define ORG "n5hyok"
 
 uint64_t chipid = ESP.getEfuseMac(); // The chip ID is essentially its MAC address(length: 6 bytes).
 uint16_t chip = (uint16_t)(chipid >> 32);
