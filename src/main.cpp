@@ -18,6 +18,7 @@ FECHADURA SALA TECNICA COM SENHA INDIVIDUAL
 #include <ESPmDNS.h>
 #include <Update.h>
 #include "C:\Users\Estudio\Desktop\dados fechadura.cpp"
+
 const int tamanho_array=5;
 const int STARTING_EEPROM_ADDRESS = 25; //primeiro endereço 
 String novasSenhas[tamanho_array];
@@ -62,6 +63,7 @@ String comando;
 String IP;
 String mac;
 unsigned long previousMillis = 0;
+unsigned long previousMillis2=0;
 const long intervalo = 60*1000*1; //1 min
 int leitura;
 const char* host = "esp3";
@@ -349,5 +351,11 @@ void loop(){
     Serial.println(digitada);
   }
     estadoSenha(estado);
+  }
+  unsigned long currentMillis2 = millis();
+  if((currentMillis2-previousMillis2)>= 86400000){
+    Serial.println("vai resetar pela hora");
+    ESP.restart();
   } 
+  delay(10);
 } 
